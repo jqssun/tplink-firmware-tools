@@ -134,7 +134,7 @@ if (oal_sys_writeImage(device, firmware_ptr, firmware_size) == 0) {
 }
 return 1;
 ```
-[2] For md5 verification, the [original md5 hash portion of the firmware buffer](#firmware-tag-header-structure) is first stored separately, then replaced with hardcoded constants [`fw_md5_constants_*`](.env.ex230vv1#:~:text=fw_md5_constants) in `libcmm.so:FUN_00059308()`. The function then calls `libcutil.so:cen_md5VerifyDigest(uint8 *expected_md5, uint8 *buffer, uint32 size) @ 0x00027210` to calculate the md5 hash of the updated firmware buffer and compare it against the stored value.
+[2] For md5 verification, the [original md5 hash portion of the firmware buffer](#firmware-tag-header-structure) is first stored separately, then replaced with hardcoded constants [`fw_md5_constants_*`](.env.ex230vv1#L2-L5) in `libcmm.so:FUN_00059308()`. The function then calls `libcutil.so:cen_md5VerifyDigest(uint8 *expected_md5, uint8 *buffer, uint32 size) @ 0x00027210` to calculate the md5 hash of the updated firmware buffer and compare it against the stored value.
 
 [6] The special version check passes if either of the following is satisfied:
 - `(device_ver & 0xffff0000) == 0`: device version is set to 0
@@ -197,14 +197,14 @@ For both `main` and `base/isp` configurations, the encrypted xml config is prepe
 | Offset  | Size | Description |
 |:--:|:--:|--|
 | `0x00` | `0x00004` | size of plain text xml config (big-endian uint32) |
-| `0x04` | `0x00004` | magic: [`0x98765432`](.env.ex230vv1#:~:text=misc_magic) |
+| `0x04` | `0x00004` | magic: [`0x98765432`](.env.ex230vv1#:L6) |
 | `0x08` | `0x00004` | N/A |
 | `0x0c` | `0x00004` | type: `2`/`3` (encrypted); `0`/`1` (plain text) |
 | `0x10` | N/A | encrypted xml config (padded to 16-byte boundary) |
 
 ### Encryption
 
-When the firmware loads each device config, it first checks whether the size of the config is smaller than `0x20000` and errors if not, as handled by `libcmm.so:oal_sys_readCfgFlash() @ 0x001f4c44` and `libcmm.so:oal_sys_readBaseCfgFlash() @ 0x001f39e0`. It then decrypts the config using AES-128-CBC implemented in `libgdpr.so:aes_cbc_decrypt_intface_bypart()` where both the [key](.env.ex230vv1#:~:text=misc_key) and [IV](.env.ex230vv1#:~:text=misc_iv) are hardcoded in `libgdpr.so`.
+When the firmware loads each device config, it first checks whether the size of the config is smaller than `0x20000` and errors if not, as handled by `libcmm.so:oal_sys_readCfgFlash() @ 0x001f4c44` and `libcmm.so:oal_sys_readBaseCfgFlash() @ 0x001f39e0`. It then decrypts the config using AES-128-CBC implemented in `libgdpr.so:aes_cbc_decrypt_intface_bypart()` where both the [key](.env.ex230vv1#L7) and [IV](.env.ex230vv1#L8) are hardcoded in `libgdpr.so`.
 
 Upon writing the config, `libcmm.so:oal_sys_writeCfgFlash()` and `libcmm.so:oal_sys_writeBaseCfgFlash()` are called, which in turn call `libgdpr.so:aes_cbc_encrypt_intface_bypart()` after applying PKCS#7 padding to align it to a 16-byte boundary.
 
@@ -321,7 +321,7 @@ memcpy(&str_val, hex_str, 8);                                  // [3]
 uint64_t key = base_key ^ str_val;
 ```
 
-[1] The generic base key [`backupcfg_base_key`](.env.ex230vv1#:~:text=backupcfg_base_key) is hardcoded in `libcmm.so @ 0x24dfd0` with format string `%08x` specified in `libcmm.so @ 0x24dfc8`. This can either be found by following the decompiled code analyzed by Ghidra, or tracing the function that produced the log message "Get dev info for BNR key failed" in `libcmm.so @ 0x25dfa8`.
+[1] The generic base key [`backupcfg_base_key`](.env.ex230vv1#L9) is hardcoded in `libcmm.so @ 0x24dfd0` with format string `%08x` specified in `libcmm.so @ 0x24dfc8`. This can either be found by following the decompiled code analyzed by Ghidra, or tracing the function that produced the log message "Get dev info for BNR key failed" in `libcmm.so @ 0x25dfa8`.
 
 [2] To find ProductID, we need to look at `libcmm.so @ 0x4e160`.
 ```asm
@@ -329,7 +329,7 @@ lw v0,0x4b8(s8)     ; load ProductID
                     ; DevInfo buffer is at s8+0x34
                     ; offset: 0x4b8 - 0x34 = 0x484
 ```
-This indicates ProductID is stored in memory within the DevInfo structure. To retrieve its value, we need to [perform runtime memory analysis](#runtime-memory-analysis). For this model, [`product_id`](.env.ex230vv1#:~:text=product_id) has been found to be the value of the `X_TP_ProductID` field in the decrypted `/etc/reduced_data_model.xml`. By following the algorithm, this results in the final DES key [`backupcfg_key`](.env.ex230vv1#:~:text=backupcfg_key).
+This indicates ProductID is stored in memory within the DevInfo structure. To retrieve its value, we need to [perform runtime memory analysis](#runtime-memory-analysis). For this model, [`product_id`](.env.ex230vv1#L11) has been found to be the value of the `X_TP_ProductID` field in the decrypted `/etc/reduced_data_model.xml`. By following the algorithm, this results in the final DES key [`backupcfg_key`](.env.ex230vv1#L10).
 
 [3] The actual key is produced by XOR'ing base key against ASCII ProductID.
 
@@ -382,7 +382,7 @@ When the firmware is built, `/etc/{default_config,reduced_data_model}.xml` are e
 - encrypt: `enc -e -i <input_file> [-o <output_file>]`
 - decrypt: `enc -d -i <input_file> [-o <output_file>]`
 
-By disassembling the Linux x86 ELF binary in the firmware source, you can see it also uses DES encryption with a hardcoded key [`default_config_key`](.env.ex230vv1#:~:text=default_config_key).
+By disassembling the Linux x86 ELF binary in the firmware source, you can see it also uses DES encryption with a hardcoded key [`default_config_key`](.env.ex230vv1#L1).
 
 ### Sequence of Function Calls
 ```mermaid
